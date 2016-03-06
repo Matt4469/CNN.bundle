@@ -1,0 +1,81 @@
+#HTTP_HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.1750.117 Safari/537.36'}
+BASE_URL = 'http://ht.cdn.turner.com/cnn/big'
+VIDEO_XML = 'http://us.cnn.com/video/data/3.0/video/%s/index.xml?xml=true'
+
+####################################################################################################
+def NormalizeURL(url):
+
+	return url.split('/video/playlists/')[0]
+
+####################################################################################################
+def MetadataObjectForURL(url):
+
+	xml_data = GetVideoXML(url)
+
+	vid_title = xml_data.xpath('//headline/text()')[0]
+	summary = xml_data.xpath('//description/text()')[0]
+	duration = xml_data.xpath('//length/text()')[0]
+	duration = Datetime.MillisecondsFromString(duration)
+	date = xml_data.xpath('//dateCreated/text()')[0]
+	date = Datetime.ParseDate(date).date()
+
+	thumb = xml_data.xpath('//image[@name="lg"]/text()')[0]
+
+	if thumb == '':
+		thumb = xml_data.xpath('//image/text()')[0]
+
+	return VideoClipObject(
+		title = vid_title,
+		duration = duration,
+		originally_available_at = date,
+		summary = summary,
+		thumb = Resource.ContentsOfURLWithFallback(thumb)
+	)
+
+####################################################################################################
+def MediaObjectsForURL(url):
+
+    return [
+        (MediaObject(
+            bitrate = bitrate,
+            container = Container.MP4,
+            video_codec = VideoCodec.H264,
+            video_resolution = resolution,
+            audio_codec = AudioCodec.AAC,
+            audio_channels = 2,
+            optimized_for_streaming = True,
+            parts = [
+                PartObject(
+                    key = Callback(PlayVideo, url=url, bitrate=bitrate)
+                )
+            ]
+        ))for bitrate, resolution in [(5500, '1080'), (3500, '720'), (1850, '504'), (1300, '432'), (900, '360'), (550, '288')]
+    ]
+####################################################################################################
+@indirect
+def PlayVideo(url, bitrate, **kwargs):
+
+    xml_data = GetVideoXML(url)
+    (video_url, available_bitrates) = (None, [], [])
+    
+    for version in xml_data.xpath('//files/file/@bitrate'):
+        if version.endswith('k_mp4'):
+            vid_bitrate = version.split('_')[1].split('k')[0]
+            available_bitrates.append(vid_bitrate)
+    closest = min((abs((bitrate*1000) - int(i)), int(i)) for i in available_bitrates)[1]
+    try:
+        video_url = BASE_URL+xml_data.xpath('//files/file[contains(@bitrate, "%sk_mp4")]/text()' %closest)[0]
+        return IndirectResponse(VideoClipObject, key=video_url)
+    except: raise Ex.MediaNotAvailable
+
+####################################################################################################
+def GetVideoXML(url):
+
+	video_id = url.split('videos/')[1]
+	video_url = VIDEO_XML %video_id
+    
+	try:
+		xml_data = XML.ElementFromURL(video_url, cacheTime=CACHE_1HOUR)
+		return xml_data
+	except:
+		raise Ex.MediaNotAvailable

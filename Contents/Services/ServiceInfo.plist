@@ -4,18 +4,11 @@
 <dict>
 	<key>URL</key>
 	<dict>
-		<key>CNN Live</key>
+		<key>CNN</key>
 		<dict>
-			<key>TestURLs</key>
-			<array>
-				<string>cnn://1</string>
-				<string>cnn://2</string>
-				<string>cnn://3</string>
-				<string>cnn://4</string>
-			</array>
 			<key>URLPatterns</key>
 			<array>
-				<string>cnn://[1-9]+</string>
+				<string>^http://(www|money|edition).cnn.com/videos?/.+/\d{4}/\d{2}/\d{2}/.+</string>
 			</array>
 		</dict>
 	</dict>
