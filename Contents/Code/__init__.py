@@ -11,11 +11,6 @@ RELATED_SECTION = ['Business', 'Entertainment', 'Health', 'Justice', 'Living', '
 SEARCH_URL  = 'http://searchapp.cnn.com/search/query.jsp?page=%s&npp=30&start=%s&text=%s&type=all&sort=relevance&collection=VIDEOS'
 RE_SEARCH_JSON  = Regex('"results":\[(.+?)\],"didYouMean"')
 
-# REGEX for pulling the json for the video carousel at the top of a page
-RE_JSON  = Regex('currentVideoCollection = (.+?),currentVideoCollectionId')
-# Also the playlists vary and can be chosen by adding this to the end of a video url - /video/playlists/climate-change/
-# or /video/playlists/top-news-videos/, /video/playlists/most-popular-domestic/, /video/playlists/stories-worth-watching/
-# BUT YOU CAN ONLY FIND THEM WHEN YOU OPEN A VIDEO. PROBABLY BEST TO PULL THE MAIN PAGE AND ATTACH A PLYALIST TO EACH
 ####################################################################################################
 def Start():
 
@@ -160,34 +155,6 @@ def VideoSearch(query, page=1, start=1):
 
     if len(oc) == 30:
         oc.add(NextPageObject(key = Callback(VideoSearch, query=query, page=page+1, start=start+30), title = L("Next Page ...")))
-
-    if len(oc) < 1:
-        Log ('still no value for objects')
-        return ObjectContainer(header="Empty", message="There are no videos to list right now.")
-    else:
-        return oc
-####################################################################################################
-# This function will create a list of videos from the json for the playlist under a player
-# IT IS NOT CURRENTLY USED
-@route(PREFIX + '/pagejson')
-def PageJSON(title, url):  
-
-    oc = ObjectContainer(title2 = title)
-
-    content = HTTP.Request(url).content
-    json_data = RE_JSON.search(content).group(1)
-    try: json = JSON.ObjectFromString(json_data)
-    except: return ObjectContainer(header="Empty", message="There are no videos to list right now.")
-
-    for item in json:
-        title = item['title']
-        url = BASE_URL + '/videos/' + item['videoId']
-        duration = Datetime.MillisecondsFromString(item['duration'])
-
-        oc.add(VideoClipObject(
-            url = url,
-            title = title,
-            duration = duration))
 
     if len(oc) < 1:
         Log ('still no value for objects')
