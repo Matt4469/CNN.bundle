@@ -11,6 +11,8 @@ RELATED_SECTION = ['Business', 'Entertainment', 'Health', 'Justice', 'Living', '
 SEARCH_URL  = 'http://searchapp.cnn.com/search/query.jsp?page=%s&npp=30&start=%s&text=%s&type=all&sort=relevance&collection=VIDEOS'
 RE_SEARCH_JSON  = Regex('"results":\[(.+?)\],"didYouMean"')
 
+RE_ZONES  = Regex('CNN.Zones = (.+?);CNN.SiblingNavigation')
+ZONE_URL = 'http://www.cnn.com/data/ocs/section/%s/views/zones/common/zone-manager.html'
 ####################################################################################################
 def Start():
 
@@ -23,31 +25,43 @@ def Start():
 def MainMenu():
 
     oc = ObjectContainer()
-    oc.add(DirectoryObject(key = Callback(VideoSections, title = 'All Videos', url=VIDEOS), title = 'All Videos'))
-    oc.add(DirectoryObject(key = Callback(VideoSections, title = 'Digital Shorts', url='http://www.cnn.com/specials/videos/digital-shorts'), title = 'Digital Shorts'))
+    oc.add(DirectoryObject(key = Callback(AllVideoSections, title = 'All Videos', url=VIDEOS), title = 'All Videos'))
+    oc.add(DirectoryObject(key = Callback(VideosMenu, title = 'Digital Shorts', url='http://www.cnn.com/specials/videos/digital-shorts'), title = 'Digital Shorts'))
     oc.add(DirectoryObject(key = Callback(PlaylistPull, title = 'Video Playlists'), title = 'Video Playlists'))
     oc.add(InputDirectoryObject(key=Callback(VideoSearch), title='Search for CNN Videos', summary="Click here to search for videos", prompt="Search for videos by entering key words"))
 
     return oc
 
 ####################################################################################################
-# This function pulls the sections listed in a video page
-@route(PREFIX + '/videosections')
-def VideoSections(title, url):
+# This function pulls the sections of a video page
+@route(PREFIX + '/allvideosections')
+def AllVideoSections(title, url):
 
     oc = ObjectContainer()
-    html = HTML.ElementFromURL(url)
-
-    for section in html.xpath('//section'):
-        try: title = section.xpath('./@data-zone-label')[0]
-        except: continue
-        Log('this is a test %s' %title)
-        oc.add(DirectoryObject(
-            key = Callback(VideosMenu, title = title, url = url), 
-            title = title))
+    content = HTTP.Request(url).content
+    html = HTML.ElementFromString(content)
+    # Get zones
+    zone_data = RE_ZONES.search(content).group(1)
+    zone_json = JSON.ObjectFromString(zone_data)
+    try: zone_list = zone_json['zones']['minWidth']['800']
+    except: zone_list = []
+    for section in zone_list:
+        section_url = ZONE_URL %section
+        html = HTML.ElementFromURL(section_url)
+        section_title = html.xpath('//section/@data-zone-label')[0]
+        # outbrain sections are outsourced to another site so we skip those
+        if 'outbrain' in html.xpath('//section//article/@class')[0]: 
+            continue
+        if 'Zone 1' in section_title: 
+            oc.add(DirectoryObject(key = Callback(VideosMenu, title = section_title, url = section_url), title = "Featured Videos"))
+        else: 
+            oc.add(DirectoryObject(key = Callback(VideosMenu, title = section_title, url = section_url), title = section_title))
            
-    return oc
-
+    if len(oc) < 1:
+        Log ('still no value for objects')
+        return ObjectContainer(header="Empty", message="There are no videos to list right now.")
+    else:
+        return oc
 ####################################################################################################
 # This function pulls the videos listed in a section of the main video page
 @route(PREFIX + '/videosmenu')
@@ -57,7 +71,7 @@ def VideosMenu(title, url):
 
     html = HTML.ElementFromURL(url)
 
-    for video in html.xpath('//section[@data-zone-label="%s"]//article' %title):
+    for video in html.xpath('//section//article'):
         vid_url = video.xpath('.//h3/a/@href')[0].split('/video/playlists')[0]
         if not vid_url.startswith('http'):
             vid_url = BASE_URL + vid_url
@@ -161,3 +175,4 @@ def VideoSearch(query, page=1, start=1):
         return ObjectContainer(header="Empty", message="There are no videos to list right now.")
     else:
         return oc
+
