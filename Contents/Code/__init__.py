@@ -2,7 +2,7 @@ NAME = 'CNN'
 PREFIX = '/video/cnn'
 
 BASE_URL = "http://www.cnn.com"
-VIDEOS = "http://www.cnn.com/video/#"
+US_VIDEOS = " http://us.cnn.com/videos"
 DIGITAL_SHORTS = "http://www.cnn.com/specials/videos/digital-shorts"
 # This gets the related video sections http://www.cnn.com/specials/videos/digital-shorts
 RELATED_JSON = 'http://www.cnn.com/video/data/3.0/video/%s/relateds.json'
@@ -25,7 +25,7 @@ def Start():
 def MainMenu():
 
     oc = ObjectContainer()
-    oc.add(DirectoryObject(key = Callback(AllVideoSections, title = 'All Videos', url=VIDEOS), title = 'All Videos'))
+    oc.add(DirectoryObject(key = Callback(AllVideoSections, title = 'All Videos', url=US_VIDEOS), title = 'All Videos'))
     oc.add(DirectoryObject(key = Callback(VideosMenu, title = 'Digital Shorts', url='http://www.cnn.com/specials/videos/digital-shorts'), title = 'Digital Shorts'))
     oc.add(DirectoryObject(key = Callback(PlaylistPull, title = 'Video Playlists'), title = 'Video Playlists'))
     oc.add(InputDirectoryObject(key=Callback(VideoSearch), title='Search for CNN Videos', summary="Click here to search for videos", prompt="Search for videos by entering key words"))
@@ -47,11 +47,15 @@ def AllVideoSections(title, url):
     except: zone_list = []
     for section in zone_list:
         section_url = ZONE_URL %section
-        html = HTML.ElementFromURL(section_url)
-        section_title = html.xpath('//section/@data-zone-label')[0]
+        try: html = HTML.ElementFromURL(section_url)
+        except: continue
         # outbrain sections are outsourced to another site so we skip those
-        if 'outbrain' in html.xpath('//section//article/@class')[0]: 
+        # This also catches an error in the html that cause xpath errors
+        try: outbrain_code = html.xpath('//article/@class')[0]
+        except: outbrain_code = 'outbrain'
+        if 'outbrain' in outbrain_code: 
             continue
+        section_title = html.xpath('//section/@data-zone-label')[0]
         if 'Zone 1' in section_title: 
             oc.add(DirectoryObject(key = Callback(VideosMenu, title = section_title, url = section_url), title = "Featured Videos"))
         else: 
