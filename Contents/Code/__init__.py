@@ -2,7 +2,7 @@ NAME = 'CNN'
 PREFIX = '/video/cnn'
 
 BASE_URL = "http://www.cnn.com"
-US_VIDEOS = " http://us.cnn.com/videos"
+US_VIDEOS = "http://us.cnn.com/videos"
 DIGITAL_SHORTS = "http://www.cnn.com/specials/videos/digital-shorts"
 # This gets the related video sections http://www.cnn.com/specials/videos/digital-shorts
 RELATED_JSON = 'http://www.cnn.com/video/data/3.0/video/%s/relateds.json'
