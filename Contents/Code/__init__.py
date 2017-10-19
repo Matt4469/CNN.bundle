@@ -1,8 +1,8 @@
 NAME = 'CNN'
 PREFIX = '/video/cnn'
+ICON = 'icon-default.jpg'
 
 BASE_URL = "http://www.cnn.com"
-US_VIDEOS = "http://us.cnn.com/videos"
 DIGITAL_SHORTS = "http://www.cnn.com/specials/videos/digital-shorts"
 # This gets the related video sections http://www.cnn.com/specials/videos/digital-shorts
 RELATED_JSON = 'http://www.cnn.com/video/data/3.0/video/%s/relateds.json'
@@ -11,61 +11,25 @@ RELATED_SECTION = ['Business', 'Entertainment', 'Health', 'Justice', 'Living', '
 SEARCH_URL  = 'http://searchapp.cnn.com/search/query.jsp?page=%s&npp=30&start=%s&text=%s&type=all&sort=relevance&collection=VIDEOS'
 RE_SEARCH_JSON  = Regex('"results":\[(.+?)\],"didYouMean"')
 
-RE_ZONES  = Regex('CNN.Zones = (.+?);CNN.SiblingNavigation')
-ZONE_URL = 'http://www.cnn.com/data/ocs/section/%s/views/zones/common/zone-manager.html'
 ####################################################################################################
 def Start():
 
     ObjectContainer.title1 = NAME
+    DirectoryObject.thumb = R(ICON)
     HTTP.CacheTime = CACHE_1HOUR
     HTTP.Headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
 
 ####################################################################################################
-@handler(PREFIX, NAME)
+@handler(PREFIX, NAME, thumb=ICON)
 def MainMenu():
 
     oc = ObjectContainer()
-    oc.add(DirectoryObject(key = Callback(AllVideoSections, title = 'All Videos', url=US_VIDEOS), title = 'All Videos'))
     oc.add(DirectoryObject(key = Callback(VideosMenu, title = 'Digital Shorts', url='http://www.cnn.com/specials/videos/digital-shorts'), title = 'Digital Shorts'))
     oc.add(DirectoryObject(key = Callback(PlaylistPull, title = 'Video Playlists'), title = 'Video Playlists'))
     oc.add(InputDirectoryObject(key=Callback(VideoSearch), title='Search for CNN Videos', summary="Click here to search for videos", prompt="Search for videos by entering key words"))
 
     return oc
 
-####################################################################################################
-# This function pulls the sections of a video page
-@route(PREFIX + '/allvideosections')
-def AllVideoSections(title, url):
-
-    oc = ObjectContainer()
-    content = HTTP.Request(url).content
-    html = HTML.ElementFromString(content)
-    # Get zones
-    zone_data = RE_ZONES.search(content).group(1)
-    zone_json = JSON.ObjectFromString(zone_data)
-    try: zone_list = zone_json['zones']['minWidth']['800']
-    except: zone_list = []
-    for section in zone_list:
-        section_url = ZONE_URL %section
-        try: html = HTML.ElementFromURL(section_url)
-        except: continue
-        # outbrain sections are outsourced to another site so we skip those
-        # This also catches an error in the html that cause xpath errors
-        try: outbrain_code = html.xpath('//article/@class')[0]
-        except: outbrain_code = 'outbrain'
-        if 'outbrain' in outbrain_code: 
-            continue
-        section_title = html.xpath('//section/@data-zone-label')[0]
-        if 'Zone 1' in section_title: 
-            oc.add(DirectoryObject(key = Callback(VideosMenu, title = section_title, url = section_url), title = "Featured Videos"))
-        else: 
-            oc.add(DirectoryObject(key = Callback(VideosMenu, title = section_title, url = section_url), title = section_title))
-           
-    if len(oc) < 1:
-        Log ('still no value for objects')
-        return ObjectContainer(header="Empty", message="There are no videos to list right now.")
-    else:
-        return oc
 ####################################################################################################
 # This function pulls the videos listed in a section of the main video page
 @route(PREFIX + '/videosmenu')
